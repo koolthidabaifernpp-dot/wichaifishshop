@@ -1,0 +1,241 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบรับออเดอร์อาหารร้านวิชัยเมี่ยงปลาเผา</title>
+
+<style>
+body{
+    font-family:Arial;
+    background:linear-gradient(to right,#ffe6f0,#e6f7ff);
+    padding:20px;
+}
+
+h2{
+    text-align:center;
+    color:#ff3366;
+}
+
+/* การ์ตูน */
+.cartoon{
+    text-align:center;
+    margin-bottom:10px;
+}
+.cartoon img{
+    height:80px;
+    margin:5px;
+}
+
+/* ฟอร์ม */
+form{
+    background:white;
+    padding:20px;
+    border-radius:15px;
+    margin-bottom:20px;
+    box-shadow:0 4px 15px rgba(0,0,0,0.1);
+}
+
+input{
+    width:100%;
+    padding:8px;
+    margin:6px 0;
+    border-radius:8px;
+    border:2px solid #b3e0ff;
+}
+
+.add-btn{
+    background:#ff6699;
+    color:white;
+    padding:10px;
+    width:100%;
+    border:none;
+    border-radius:8px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    margin-bottom:20px;
+}
+
+th{
+    background:#ff6699;
+    color:white;
+    padding:8px;
+}
+
+td{
+    border:1px solid #ddd;
+    padding:6px;
+    text-align:center;
+}
+
+.paid{background:#28a745;color:white;}
+.unpaid{background:#dc3545;color:white;}
+.delete{background:black;color:white;}
+
+.red-dot{
+    display:inline-block;
+    width:12px;
+    height:12px;
+    background:red;
+    border-radius:50%;
+    margin-left:5px;
+}
+
+.preview-img{
+    width:60px;
+    cursor:pointer;
+    border-radius:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="cartoon">
+<img src="https://upload.wikimedia.org/wikipedia/en/7/7a/Crayon_Shin-chan.png">
+<img src="https://upload.wikimedia.org/wikipedia/en/0/05/Hello_Kitty_character_portrait.png">
+<img src="https://upload.wikimedia.org/wikipedia/en/7/7d/My_Melody.png">
+</div>
+
+<h2>ระบบรับออเดอร์อาหารร้านวิชัยเมี่ยงปลาเผา</h2>
+
+<form id="orderForm">
+<input type="text" id="customerName" placeholder="ชื่อลูกค้า" required>
+<input type="text" id="phone" placeholder="เบอร์โทร" required>
+<input type="text" id="menu" placeholder="เมนูอาหาร" required>
+<input type="number" id="qty" placeholder="จำนวน" required>
+<input type="text" id="address" placeholder="สถานที่จัดส่ง" required>
+<input type="date" id="orderDate" required>
+<button type="submit" class="add-btn">เพิ่มออเดอร์</button>
+</form>
+
+<div style="text-align:center;margin-bottom:15px;">
+<label>เลือกวันที่ดูข้อมูลย้อนหลัง:</label>
+<input type="date" id="searchDate" onchange="render()">
+</div>
+
+<table>
+<thead>
+<tr>
+<th>ชื่อลูกค้า</th>
+<th>เบอร์โทร</th>
+<th>เมนู</th>
+<th>จำนวน</th>
+<th>ที่อยู่</th>
+<th>วันที่</th>
+<th>สลิป</th>
+<th>สถานะ</th>
+<th>ลบ</th>
+</tr>
+</thead>
+<tbody id="orderTable"></tbody>
+</table>
+
+<script>
+let orders = JSON.parse(localStorage.getItem("orders")) || [];
+
+function saveData(){
+    localStorage.setItem("orders", JSON.stringify(orders));
+}
+
+function convertToBE(dateStr){
+    const d=new Date(dateStr);
+    return d.getDate()+"/"+(d.getMonth()+1)+"/"+(d.getFullYear()+543);
+}
+
+function render(){
+    const table=document.getElementById("orderTable");
+    table.innerHTML="";
+
+    const selected=document.getElementById("searchDate").value;
+    let filtered = selected ? orders.filter(o=>o.date===selected) : orders;
+
+    filtered.forEach((order,index)=>{
+        const row=table.insertRow();
+
+        row.insertCell(0).innerText=order.name;
+        row.insertCell(1).innerText=order.phone;
+        row.insertCell(2).innerText=order.menu;
+        row.insertCell(3).innerText=order.qty;
+        row.insertCell(4).innerText=order.address;
+        row.insertCell(5).innerText=convertToBE(order.date);
+
+        const slipCell=row.insertCell(6);
+
+        if(order.slip){
+            const img=document.createElement("img");
+            img.src=order.slip;
+            img.className="preview-img";
+            img.onclick=function(){
+                window.open(order.slip,'_blank');
+            };
+            slipCell.appendChild(img);
+        }
+
+        const upload=document.createElement("input");
+        upload.type="file";
+        upload.accept="image/*";
+        upload.onchange=function(e){
+            const reader=new FileReader();
+            reader.onload=function(){
+                order.slip=reader.result;
+                saveData();
+                render();
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+        slipCell.appendChild(document.createElement("br"));
+        slipCell.appendChild(upload);
+
+        const statusCell=row.insertCell(7);
+        const btn=document.createElement("button");
+        btn.className=order.paid?"paid":"unpaid";
+        btn.innerText=order.paid?"ชำระแล้ว":"ยังไม่ชำระ";
+        btn.onclick=function(){
+            order.paid=!order.paid;
+            saveData();
+            render();
+        };
+        statusCell.appendChild(btn);
+
+        const delCell=row.insertCell(8);
+        const delBtn=document.createElement("button");
+        delBtn.className="delete";
+        delBtn.innerText="ลบ";
+        delBtn.onclick=function(){
+            orders.splice(orders.indexOf(order),1);
+            saveData();
+            render();
+        };
+        delCell.appendChild(delBtn);
+    });
+}
+
+document.getElementById("orderForm").addEventListener("submit",function(e){
+    e.preventDefault();
+
+    orders.push({
+        name:customerName.value,
+        phone:phone.value,
+        menu:menu.value,
+        qty:qty.value,
+        address:address.value,
+        date:orderDate.value,
+        slip:null,
+        paid:false
+    });
+
+    saveData();
+    render();
+    this.reset();
+});
+
+render();
+</script>
+
+</body>
+</html>
